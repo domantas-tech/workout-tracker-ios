@@ -1,0 +1,4 @@
+# Normalise line endings so Windows edits don't break shell scripts or Xcode files
+* text=auto eol=lf
+*.png binary
+*.jpg binary
