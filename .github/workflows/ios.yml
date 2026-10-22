@@ -1,0 +1,183 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push cancels a still-running build of the same branch
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  XCODEGEN_VERSION: "2.46.0"
+  APP_NAME: RepTrack
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+
+      # XcodeGen turns project.yml into RepTrack.xcodeproj. The binary is cached between runs.
+      - name: Cache XcodeGen
+        id: cache-xcodegen
+        uses: actions/cache@v4
+        with:
+          path: ~/.xcodegen
+          key: xcodegen-${{ runner.os }}-${{ env.XCODEGEN_VERSION }}
+
+      - name: Install XcodeGen
+        if: steps.cache-xcodegen.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/xcodegen.zip" \
+            "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          mkdir -p ~/.xcodegen
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d ~/.xcodegen
+
+      - name: Generate Xcode project
+        run: |
+          echo "$HOME/.xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+          "$HOME/.xcodegen/xcodegen/bin/xcodegen" generate
+
+      # Reusing build products makes incremental builds much faster
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: DerivedData
+          key: deriveddata-${{ runner.os }}-${{ hashFiles('project.yml', 'RepTrack/**', 'RepTrackTests/**') }}
+          restore-keys: |
+            deriveddata-${{ runner.os }}-
+
+      - name: Pick an iPhone simulator
+        id: simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          best = None
+          for runtime, devices in json.load(sys.stdin)["devices"].items():
+              if ".iOS-" not in runtime:
+                  continue
+              version = tuple(int(p) for p in runtime.split(".iOS-")[-1].split("-"))
+              for d in devices:
+                  if d.get("isAvailable") and d["name"].startswith("iPhone"):
+                      key = (version, d["name"])
+                      if best is None or key > best[0]:
+                          best = (key, d["udid"])
+                          print("Candidate:", d["name"], runtime, file=sys.stderr)
+          print(best[1])
+          ')
+          echo "Using simulator $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      # Simulator build for Appetize: Release, both CPU architectures, no code signing needed
+      - name: Build app for the simulator
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          xcodebuild build \
+            -project "$APP_NAME.xcodeproj" \
+            -scheme "$APP_NAME" \
+            -configuration Release \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath DerivedData \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee artifacts/build.log | xcbeautify --renderer github-actions
+
+      - name: Zip the .app
+        run: |
+          PRODUCTS="DerivedData/Build/Products/Release-iphonesimulator"
+          lipo -info "$PRODUCTS/$APP_NAME.app/$APP_NAME"
+          (cd "$PRODUCTS" && zip -qry "$GITHUB_WORKSPACE/artifacts/$APP_NAME-simulator.zip" "$APP_NAME.app")
+          ls -lh artifacts
+
+      - name: Upload simulator build
+        uses: actions/upload-artifact@v4
+        with:
+          name: RepTrack-simulator
+          path: artifacts/RepTrack-simulator.zip
+          retention-days: 30
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project "$APP_NAME.xcodeproj" \
+            -scheme "$APP_NAME" \
+            -configuration Debug \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath DerivedData \
+            -resultBundlePath artifacts/TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee artifacts/test.log | xcbeautify --renderer github-actions
+
+      - name: Upload logs and test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-and-test-results
+          path: |
+            artifacts/*.log
+            artifacts/TestResults.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Optional: only does something when the APPETIZE_API_TOKEN secret is set in the repo settings.
+  # Set the APPETIZE_PUBLIC_KEY repository variable to keep updating the same Appetize app (same link).
+  appetize:
+    name: Upload to Appetize
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for Appetize token
+        id: token
+        env:
+          APPETIZE_API_TOKEN: ${{ secrets.APPETIZE_API_TOKEN }}
+        run: |
+          if [ -n "$APPETIZE_API_TOKEN" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::APPETIZE_API_TOKEN secret is not set, so the Appetize upload was skipped."
+          fi
+
+      - name: Download simulator build
+        if: steps.token.outputs.enabled == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: RepTrack-simulator
+
+      - name: Upload to Appetize
+        if: steps.token.outputs.enabled == 'true'
+        env:
+          APPETIZE_API_TOKEN: ${{ secrets.APPETIZE_API_TOKEN }}
+          APPETIZE_PUBLIC_KEY: ${{ vars.APPETIZE_PUBLIC_KEY }}
+        run: |
+          URL="https://api.appetize.io/v1/apps"
+          if [ -n "$APPETIZE_PUBLIC_KEY" ]; then
+            URL="$URL/$APPETIZE_PUBLIC_KEY"
+            echo "Updating existing Appetize app $APPETIZE_PUBLIC_KEY"
+          else
+            echo "Creating a new Appetize app (set the APPETIZE_PUBLIC_KEY variable to reuse it next time)"
+          fi
+          RESPONSE=$(curl -fsS -X POST "$URL" \
+            -H "X-API-KEY: $APPETIZE_API_TOKEN" \
+            -F "file=@RepTrack-simulator.zip" \
+            -F "platform=ios" \
+            -F "note=RepTrack ${GITHUB_SHA::7}")
+          KEY=$(echo "$RESPONSE" | jq -r '.publicKey')
+          echo "Appetize public key: $KEY"
+          {
+            echo "### Appetize"
+            echo "Open the app in your browser: https://appetize.io/app/$KEY"
+          } >> "$GITHUB_STEP_SUMMARY"
