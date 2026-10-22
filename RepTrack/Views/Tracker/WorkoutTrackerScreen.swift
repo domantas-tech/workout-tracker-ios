@@ -202,5 +202,6 @@ private struct ExerciseButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add exercise")
+        .accessibilityIdentifier("addExerciseButton")
     }
 }

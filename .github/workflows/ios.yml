@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Show toolchain
         run: |
@@ -31,7 +31,7 @@ jobs:
       # XcodeGen turns project.yml into RepTrack.xcodeproj. The binary is cached between runs.
       - name: Cache XcodeGen
         id: cache-xcodegen
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.xcodegen
           key: xcodegen-${{ runner.os }}-${{ env.XCODEGEN_VERSION }}
@@ -51,10 +51,10 @@ jobs:
 
       # Reusing build products makes incremental builds much faster
       - name: Cache DerivedData
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: DerivedData
-          key: deriveddata-${{ runner.os }}-${{ hashFiles('project.yml', 'RepTrack/**', 'RepTrackTests/**') }}
+          key: deriveddata-${{ runner.os }}-${{ hashFiles('project.yml', 'RepTrack/**', 'RepTrackTests/**', 'RepTrackUITests/**') }}
           restore-keys: |
             deriveddata-${{ runner.os }}-
 
@@ -102,7 +102,7 @@ jobs:
           ls -lh artifacts
 
       - name: Upload simulator build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: RepTrack-simulator
           path: artifacts/RepTrack-simulator.zip
@@ -121,9 +121,27 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             | tee artifacts/test.log | xcbeautify --renderer github-actions
 
+      # The UI test attaches screenshots of the main screens; export them as PNG files
+      - name: Export UI test screenshots
+        if: always()
+        run: |
+          if [ -d artifacts/TestResults.xcresult ]; then
+            xcrun xcresulttool export attachments               --path artifacts/TestResults.xcresult               --output-path artifacts/screenshots || true
+            ls -la artifacts/screenshots || true
+          fi
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots
+          path: artifacts/screenshots
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload logs and test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: logs-and-test-results
           path: |
@@ -153,7 +171,7 @@ jobs:
 
       - name: Download simulator build
         if: steps.token.outputs.enabled == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: RepTrack-simulator
 

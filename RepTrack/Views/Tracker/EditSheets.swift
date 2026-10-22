@@ -40,6 +40,7 @@ struct EditSetSheet: View {
                 HStack(alignment: .top, spacing: 12) {
                     TextField("0", text: $weightText)
                         .keyboardType(.decimalPad)
+                        .accessibilityIdentifier("setWeightField")
                         .focused($focus, equals: .weight)
                         .inputBox(label: "Weight", suffix: "kg", isFocused: focus == .weight)
                     TextField("", text: $repsText)

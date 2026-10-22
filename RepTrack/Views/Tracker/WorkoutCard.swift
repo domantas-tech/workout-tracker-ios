@@ -186,6 +186,7 @@ struct SetRow: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Weight \(Format.weight(set.weight)) kg")
+            .accessibilityIdentifier("setWeight-\(set.setNumber)")
             .accessibilityHint("Edit weight")
 
             Spacer().frame(width: 8)

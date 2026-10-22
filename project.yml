@@ -54,17 +54,32 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/RepTrack.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/RepTrack"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
+  RepTrackUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: RepTrackUITests
+    dependencies:
+      - target: RepTrack
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.domantastech.reptrack.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: RepTrack
+
 schemes:
   RepTrack:
     build:
       targets:
         RepTrack: all
         RepTrackTests: [test]
+        RepTrackUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
         - RepTrackTests
+        - RepTrackUITests
     archive:
       config: Release

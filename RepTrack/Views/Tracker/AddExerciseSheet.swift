@@ -42,6 +42,7 @@ struct AddExerciseSheet: View {
                     .submitLabel(.done)
                     .focused($nameFocused)
                     .onSubmit(submit)
+                    .accessibilityIdentifier("exerciseNameField")
                     .inputBox(isFocused: nameFocused)
                     .padding(.top, 16)
 
@@ -84,6 +85,7 @@ struct AddExerciseSheet: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isNameBlank)
+                .accessibilityIdentifier("confirmAddExercise")
                 .padding(.top, 24)
             }
             .padding(.horizontal, 24)

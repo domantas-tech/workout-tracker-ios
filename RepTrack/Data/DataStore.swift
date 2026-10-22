@@ -29,8 +29,9 @@ final class DataStore {
     }
 
     /// The app's on-disk store; falls back to memory if the file can't be opened.
+    /// UI tests launch with `-uiTesting` to start from an empty, throwaway store.
     static func makeDefault() -> DataStore {
-        if let store = try? DataStore() { return store }
+        if !ProcessInfo.processInfo.arguments.contains("-uiTesting"), let store = try? DataStore() { return store }
         // swiftlint:disable:next force_try
         return try! DataStore(inMemory: true)
     }
