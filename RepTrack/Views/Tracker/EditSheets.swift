@@ -6,7 +6,7 @@ struct EditingSet: Identifiable {
     let set: WorkoutSet
     let focusWeight: Bool
 
-    var id: Int64 { set.id }
+    var id: Int64 { self.set.id }
 }
 
 /// "Set N": type the exact weight and reps, or delete the set.
