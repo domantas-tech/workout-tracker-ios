@@ -5,8 +5,8 @@ import SwiftData
 /// (empty until the user fills it in), so callers only need to nil-check the fields.
 @MainActor
 final class UserProfileRepository {
-    static let maxWeightKg = 500.0
-    static let maxHeightCm = 300.0
+    nonisolated static let maxWeightKg = 500.0
+    nonisolated static let maxHeightCm = 300.0
 
     /// Missing, non-positive or non-finite input means "not set"; anything else is capped at `max`.
     nonisolated static func sanitize(_ value: Double?, max: Double) -> Double? {

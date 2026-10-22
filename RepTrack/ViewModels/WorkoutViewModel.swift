@@ -22,9 +22,9 @@ final class WorkoutViewModel {
     private(set) var savedExercises: [SavedExercise] = []
     private(set) var userProfile = UserProfile()
 
-    init(store: DataStore, restTimer: RestTimer = RestTimer(), today: LocalDate = .today()) {
+    init(store: DataStore, restTimer: RestTimer? = nil, today: LocalDate = .today()) {
         self.store = store
-        self.restTimer = restTimer
+        self.restTimer = restTimer ?? RestTimer()
         self.selectedDate = today
         reload()
         store.observe { [weak self] in self?.reload() }

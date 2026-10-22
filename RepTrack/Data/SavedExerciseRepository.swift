@@ -5,7 +5,7 @@ import SwiftData
 @MainActor
 final class SavedExerciseRepository {
     static let table = "saved_exercises"
-    static let maxNameLength = 50
+    nonisolated static let maxNameLength = 50
 
     /// Trimmed, single-spaced and capped at `maxNameLength`; nil when blank.
     nonisolated static func sanitizeName(_ name: String) -> String? {

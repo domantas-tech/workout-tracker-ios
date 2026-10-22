@@ -256,7 +256,7 @@ private struct StepperButton: View {
             .accessibilityElement()
             .accessibilityLabel(label)
             .accessibilityAddTraits(.isButton)
-            .accessibilityAction(onTap)
+            .accessibilityAction { onTap() }
     }
 }
 

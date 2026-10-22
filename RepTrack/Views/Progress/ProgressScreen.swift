@@ -168,11 +168,14 @@ private struct ReportExportModifier: ViewModifier {
                 defaultFilename: fileName,
                 onCompletion: { result in
                     switch result {
-                    case .success: toast = ToastMessage(text: "Report exported")
-                    case .failure: toast = ToastMessage(text: "Couldn't export the report")
+                    case .success:
+                        toast = ToastMessage(text: "Report exported")
+                    case let .failure(error):
+                        // Backing out of the save dialog is not an error
+                        if (error as? CocoaError)?.code == .userCancelled { return }
+                        toast = ToastMessage(text: "Couldn't export the report")
                     }
-                },
-                onCancellation: {}
+                }
             )
     }
 
