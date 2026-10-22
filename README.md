@@ -8,6 +8,12 @@ overload week by week or month by month.
 
 Everything is stored on the phone — no account, no network, no tracking.
 
+<p>
+  <img src=".github/screenshots/tracker.png" alt="Tracker screen with a logged workout and the rest timer" width="240">
+  <img src=".github/screenshots/edit-set.png" alt="Editing a set's weight and reps" width="240">
+  <img src=".github/screenshots/progress.png" alt="Weekly progress report" width="240">
+</p>
+
 ## Features
 
 - **Day view** – swipeable week strip with dots on training days, calendar picker, "Today" shortcut.
@@ -36,6 +42,7 @@ RepTrack/
   Views/                     SwiftUI screens: Tracker/, Progress/, shared Components/ and Theme/
   Resources/                 Asset catalog (app icon, accent colour)
 RepTrackTests/               XCTest unit tests for the logic, database and view models
+RepTrackUITests/             UI test that drives the app and captures screenshots
 tools/generate-app-icon.mjs  Renders the app icon PNG (run with Node.js)
 .github/workflows/ios.yml    The CI pipeline
 ```
@@ -54,9 +61,14 @@ Every push to `main` (or a manual run) starts the **iOS CI** workflow on a GitHu
 1. Install XcodeGen (cached between runs) and generate `RepTrack.xcodeproj`.
 2. Build the app for the **iOS Simulator** (Release, Apple-silicon and Intel) and zip `RepTrack.app`.
 3. Upload the zip as the **`RepTrack-simulator`** artifact (kept for 30 days).
-4. Run all unit tests on an iPhone simulator. Logs and test results are uploaded as
+4. Run all tests on an iPhone simulator:
+   - **unit tests** (`RepTrackTests`) check the logic, the database and the view models — the same
+     cases as the Android app's tests, plus more;
+   - a **UI test** (`RepTrackUITests`) taps through the real app (add an exercise, type a weight,
+     tick sets off, open Progress) and takes a screenshot of each screen.
+5. Upload the screenshots as the **`screenshots`** artifact, and logs + test results as
    `logs-and-test-results`.
-5. Optional **Upload to Appetize** job — runs only if the `APPETIZE_API_TOKEN` secret exists.
+6. Optional **Upload to Appetize** job — runs only if the `APPETIZE_API_TOKEN` secret exists.
 
 The repository is public, so the macOS build minutes are free.
 See the runs under the **Actions** tab of the repository.
